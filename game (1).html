@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Выдох — Собери гигиену</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600&family=Onest:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --black:#0A0A0A;--white:#F5F5F0;--tl:#777;
+    --her-1:#B8DEC0;--him-1:#A8C4D4;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    min-height:100vh;background:var(--black);color:var(--white);
+    font-family:'Onest',sans-serif;font-size:15px;padding:20px 18px 28px;
+    display:flex;flex-direction:column;align-items:center;
+  }
+  .top{width:100%;max-width:440px;display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+  .top h1{font-family:'Unbounded',sans-serif;font-size:17px;font-weight:600;letter-spacing:-.3px}
+  .back{font-size:13px;color:var(--tl);text-decoration:none;border:1px solid rgba(255,255,255,.12);
+    padding:8px 14px;border-radius:12px;transition:color .2s,border-color .2s;white-space:nowrap}
+  .back:hover{color:var(--white);border-color:rgba(168,196,212,.4)}
+  .game-wrap{width:100%;max-width:440px}
+  .slabel{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--tl);margin-bottom:8px}
+  .sub{font-size:13px;color:var(--tl);line-height:1.55;margin-bottom:16px}
+  .sub strong{color:var(--white);font-weight:500}
+  .game-hud{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+  .game-scores{font-family:'Unbounded',sans-serif;font-size:14px;font-weight:500}
+  .game-scores .accent{color:var(--her-1)}
+  .game-scores .muted{color:var(--tl);font-size:12px;font-weight:400;font-family:'Onest',sans-serif}
+  .game-btns{display:flex;flex-wrap:wrap;gap:8px}
+  .gbtn{padding:9px 18px;border-radius:30px;font-size:12px;font-weight:500;border:1px solid rgba(255,255,255,.12);
+    background:rgba(255,255,255,.04);color:var(--white);cursor:pointer;transition:filter .2s}
+  .gbtn:hover{filter:brightness(1.1)}
+  .gbtn.primary{background:var(--her-1);color:var(--black);border-color:transparent}
+  .gcanvas-wrap{
+    position:relative;width:100%;border-radius:20px;overflow:hidden;
+    border:1px solid rgba(255,255,255,.08);
+    background:linear-gradient(180deg,#121a14 0%,#0a100c 50%,#0d1410 100%);
+    touch-action:none;aspect-ratio:5/7;max-height:min(62vh,560px);
+  }
+  #gcanvas{display:block;width:100%;height:100%}
+  .game-legend{display:flex;flex-wrap:wrap;gap:10px 16px;justify-content:center;margin-top:14px;font-size:13px;color:var(--tl)}
+  .game-legend span{display:inline-flex;align-items:center;gap:6px}
+  .game-msg{text-align:center;min-height:1.3em;margin-top:10px;font-size:13px;font-weight:500}
+  .game-msg.ok{color:var(--her-1)}
+  .game-msg.bad{color:#e57373}
+  .hint{text-align:center;font-size:12px;color:var(--tl);margin-top:10px;line-height:1.5}
+</style>
+</head>
+<body>
+  <div class="top">
+    <h1>Собери гигиену</h1>
+    <a class="back" id="backHome" href="./">← На сайт</a>
+  </div>
+  <div class="game-wrap">
+    <div class="slabel">мини-игра · Выдох</div>
+    <p class="sub">Лови в корзину товары линеек Выдох: таблетки, спрей, флосс, мини-щётку. <strong>Микробы — мимо:</strong> в корзину нельзя.</p>
+    <div class="game-hud">
+      <div class="game-scores">
+        <span class="accent" id="gScore">0</span> <span class="muted">очков</span>
+        &nbsp;·&nbsp;
+        <span class="accent" id="gLives">3</span> <span class="muted">жизни</span>
+      </div>
+      <div class="game-btns">
+        <button type="button" class="gbtn primary" id="gStart">Старт</button>
+        <button type="button" class="gbtn" id="gPause" disabled>Пауза</button>
+        <button type="button" class="gbtn" id="gReset">Заново</button>
+      </div>
+    </div>
+    <div class="gcanvas-wrap" id="gcanvasWrap">
+      <canvas id="gcanvas" width="400" height="560" aria-label="Игровое поле"></canvas>
+    </div>
+    <div class="game-legend">
+      <span>таблетки</span><span>спрей</span><span>флосс</span><span>мини-щётка</span><span>🦠 микроб</span>
+    </div>
+    <p class="game-msg" id="gMsg" role="status"></p>
+    <p class="hint">Компьютер: ← → или A D · Телефон: веди пальцем по полю</p>
+  </div>
+<script>
+(function(){
+  const back=document.getElementById('backHome');
+  if(back){
+    try{
+      const u=new URL(window.location.href);
+      const base=u.pathname.replace(/[^/]+$/,'');
+      if(u.protocol==='file:')back.href='index%202.html';
+      else if(base)back.href=u.origin+base;
+    }catch(_){}
+  }
+})();
+
+const ASSET_BASE='';
+
+const FILE_TABLET=['tablets_1_f.jpg','tablets_2_f.jpg','tablets_3_f.jpg','tablets_1_m.jpg','tablets_2_m.jpg','tablets_3_m.jpg'];
+const FILE_SPRAY=['sprei_f.jpg','sprei_m.jpg'];
+const FILE_FLOSS=['floss_f.jpg','floss_m.jpg'];
+const FILE_BRUSH=['soboi_f.jpg','soboi_m.jpg'];
+
+const G_TYPES=[
+  {id:'tablet',good:true,label:'таблетки',pts:12,vy:0.8,r:36,files:FILE_TABLET},
+  {id:'spray',good:true,label:'спрей',pts:14,vy:0.86,r:35,files:FILE_SPRAY},
+  {id:'floss',good:true,label:'флосс',pts:11,vy:0.78,r:34,files:FILE_FLOSS},
+  {id:'brush',good:true,label:'мини-щётка',pts:13,vy:0.84,r:36,files:FILE_BRUSH},
+  {id:'germ',good:false,label:'микроб',pts:-35,vy:0.94,r:32,emoji:'🦠'}
+];
+
+const imgByUrl=new Map();
+const loadPromises=new Map();
+
+function loadOne(url){
+  const cached=imgByUrl.get(url);
+  if(cached&&cached.complete&&cached.naturalWidth)return Promise.resolve(cached);
+  if(loadPromises.has(url))return loadPromises.get(url);
+  const p=new Promise(res=>{
+    const im=new Image();
+    im.decoding='async';
+    im.referrerPolicy='no-referrer';
+    im.onload=()=>{
+      const fname=(url||'').split('/').pop();
+      imgByUrl.set(url,im);
+      if(fname)imgByUrl.set(ASSET_BASE+fname,im);
+      try{
+        const abs=new URL(ASSET_BASE+fname,location.href).href;
+        if(abs!==url)imgByUrl.set(abs,im);
+      }catch(_){}
+      res(im);
+    };
+    im.onerror=()=>res(null);
+    im.src=url;
+  }).finally(()=>{loadPromises.delete(url);});
+  loadPromises.set(url,p);
+  return p;
+}
+
+function preloadAssets(){
+  const files=FILE_TABLET.concat(FILE_SPRAY,FILE_FLOSS,FILE_BRUSH);
+  return Promise.all(files.map(f=>loadOne(ASSET_BASE+f)));
+}
+
+function resolveImg(url){
+  const im=imgByUrl.get(url);
+  if(im&&im.complete&&im.naturalWidth)return im;
+  try{
+    const abs=url.startsWith('http')||url.startsWith('file:')?url:new URL(url,location.href).href;
+    const alt=imgByUrl.get(abs);
+    if(alt&&alt.complete&&alt.naturalWidth)return alt;
+  }catch(_){}
+  loadOne(url);
+  return null;
+}
+
+const gcanvas=document.getElementById('gcanvas');
+const gctx=gcanvas.getContext('2d');
+const gWrap=document.getElementById('gcanvasWrap');
+const gScoreEl=document.getElementById('gScore');
+const gLivesEl=document.getElementById('gLives');
+const gMsg=document.getElementById('gMsg');
+const gStart=document.getElementById('gStart');
+const gPause=document.getElementById('gPause');
+const gReset=document.getElementById('gReset');
+let gW=400,gH=560,gRunning=false,gPaused=false,gLives=3,gScore=0,gItems=[],gBasketX=200,gKeys={},gSpawn=0,gLast=0,gRaf=0;
+const FALL_MUL=1.66;
+const BW=114,BH=28;
+
+function gResize(){
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  const r=gWrap.getBoundingClientRect();
+  gW=Math.max(280,Math.floor(r.width));
+  gH=Math.max(360,Math.floor(r.height));
+  gcanvas.width=Math.floor(gW*dpr);
+  gcanvas.height=Math.floor(gH*dpr);
+  gcanvas.style.width=gW+'px';
+  gcanvas.style.height=gH+'px';
+  gctx.setTransform(dpr,0,0,dpr,0,0);
+  gBasketX=Math.min(gW-60,Math.max(60,gBasketX));
+}
+
+function drawProductBubble(x,y,r,imgUrl){
+  const img=imgUrl?resolveImg(imgUrl):null;
+  gctx.save();
+  gctx.beginPath();
+  gctx.arc(x,y,r,0,Math.PI*2);
+  gctx.clip();
+  if(img&&img.complete&&img.naturalWidth){
+    const s=r*2.45;
+    gctx.drawImage(img,x-s/2,y-s/2,s,s);
+  }else{
+    gctx.fillStyle='rgba(40,50,45,.85)';
+    gctx.fillRect(x-r,y-r,r*2,r*2);
+  }
+  gctx.restore();
+  gctx.beginPath();
+  gctx.arc(x,y,r+0.5,0,Math.PI*2);
+  gctx.strokeStyle='rgba(255,255,255,.28)';
+  gctx.lineWidth=1.5;
+  gctx.stroke();
+}
+
+function gDraw(){
+  gctx.clearRect(0,0,gW,gH);
+  const grd=gctx.createLinearGradient(0,0,0,gH);
+  grd.addColorStop(0,'#1a2820');
+  grd.addColorStop(1,'#0e1610');
+  gctx.fillStyle=grd;
+  gctx.fillRect(0,0,gW,gH);
+  const by=gH-42;
+  gctx.fillStyle='rgba(184,222,192,.28)';
+  gctx.strokeStyle='rgba(184,222,192,.55)';
+  gctx.lineWidth=2;
+  const bx=gBasketX-BW/2;
+  gctx.beginPath();
+  if(typeof gctx.roundRect==='function')gctx.roundRect(bx,by,BW,BH,9);
+  else gctx.rect(bx,by,BW,BH);
+  gctx.fill();
+  gctx.stroke();
+  gctx.textAlign='center';
+  gctx.textBaseline='middle';
+  for(const it of gItems){
+    if(it.kind.good){
+      drawProductBubble(it.x,it.y,it.kind.r,it.imgUrl);
+    }else{
+      gctx.font='38px "Apple Color Emoji","Segoe UI Emoji",sans-serif';
+      gctx.fillText(it.kind.emoji,it.x,it.y);
+    }
+  }
+}
+
+function gSpawnItem(){
+  const goods=G_TYPES.filter(k=>k.good);
+  const roll=Math.random();
+  const pool=roll<0.16?G_TYPES.filter(k=>k.id==='germ'):goods;
+  const kind=pool[Math.floor(Math.random()*pool.length)];
+  let imgUrl=null;
+  if(kind.files){
+    const f=kind.files[Math.floor(Math.random()*kind.files.length)];
+    imgUrl=ASSET_BASE+f;
+    loadOne(imgUrl);
+  }
+  gItems.push({x:40+Math.random()*(gW-80),y:-52,vy:kind.vy*(0.9+Math.random()*0.26),kind,imgUrl});
+}
+
+function gHit(it){
+  const by=gH-42,bx=gBasketX-BW/2;
+  const rr=it.kind.r;
+  return it.y+rr*0.45>=by&&it.y-rr*0.45<=by+BH&&it.x>=bx-16&&it.x<=bx+BW+16;
+}
+
+function gLoop(ts){
+  if(!gRunning)return;
+  if(!gLast)gLast=ts;
+  const dt=Math.min(32,ts-gLast);
+  gLast=ts;
+  if(!gPaused){
+    gSpawn+=dt;
+    const interval=Math.max(620,960-gScore*0.82);
+    if(gSpawn>interval){gSpawn=0;gSpawnItem();}
+    const spd=(gKeys['ArrowLeft']||gKeys['KeyA'])?-0.45:0;
+    const spdR=(gKeys['ArrowRight']||gKeys['KeyD'])?0.45:0;
+    gBasketX+=(spd+spdR)*(dt/16)*(gW/400)*3.35;
+    gBasketX=Math.max(60,Math.min(gW-60,gBasketX));
+    const next=[];
+    for(const it of gItems){
+      it.y+=it.vy*(dt/16)*FALL_MUL;
+      if(gHit(it)){
+        if(it.kind.good){gScore+=it.kind.pts;gMsg.textContent='+'+it.kind.pts+' · '+it.kind.label;gMsg.className='game-msg ok';}
+        else{gScore=Math.max(0,gScore+it.kind.pts);gLives--;gMsg.textContent='Микроб в корзине!';gMsg.className='game-msg bad';}
+        continue;
+      }
+      if(it.y-it.kind.r>gH+36){
+        if(it.kind.good){gMsg.textContent='Упустили: '+it.kind.label;gMsg.className='game-msg';}
+        continue;
+      }
+      next.push(it);
+    }
+    gItems=next;
+    gScoreEl.textContent=String(gScore);
+    gLivesEl.textContent=String(Math.max(0,gLives));
+    if(gLives<=0){
+      gRunning=false;gPause.disabled=true;gStart.textContent='Ещё раз';
+      gMsg.textContent='Игра окончена. Счёт: '+gScore;gMsg.className='game-msg bad';
+      gLast=0;gDraw();return;
+    }
+  }
+  gDraw();
+  gRaf=requestAnimationFrame(gLoop);
+}
+
+function gStartGame(){
+  gResize();
+  gScore=0;gLives=3;gItems=[];gSpawn=0;gLast=0;gRunning=true;gPaused=false;
+  gScoreEl.textContent='0';gLivesEl.textContent='3';
+  gPause.disabled=false;gPause.textContent='Пауза';gStart.textContent='Старт';
+  gMsg.textContent='';gMsg.className='game-msg';
+  cancelAnimationFrame(gRaf);
+  gRaf=requestAnimationFrame(gLoop);
+}
+
+function gStopLoop(){cancelAnimationFrame(gRaf);gRaf=0;}
+
+function gTogglePause(){
+  if(!gRunning)return;
+  gPaused=!gPaused;
+  gPause.textContent=gPaused?'Продолжить':'Пауза';
+  gMsg.textContent=gPaused?'Пауза':'';
+  gMsg.className='game-msg';
+}
+
+gStart.disabled=true;
+gStart.textContent='Загрузка…';
+preloadAssets().then(()=>{
+  gStart.disabled=false;
+  gStart.textContent='Старт';
+  gResize();
+  gDraw();
+});
+
+gStart.addEventListener('click',()=>{if(!gRunning||gLives<=0)gStartGame();});
+gPause.addEventListener('click',gTogglePause);
+gReset.addEventListener('click',()=>{gRunning=false;gPaused=false;gStopLoop();gItems=[];gScore=0;gLives=3;gScoreEl.textContent='0';gLivesEl.textContent='3';gPause.disabled=true;gStart.textContent='Старт';gMsg.textContent='';gLast=0;gDraw();});
+window.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight','KeyA','KeyD'].includes(e.code))gKeys[e.code]=true;});
+window.addEventListener('keyup',e=>{if(['ArrowLeft','ArrowRight','KeyA','KeyD'].includes(e.code))gKeys[e.code]=false;});
+let gPointer=false;
+gWrap.addEventListener('pointerdown',e=>{gPointer=true;gWrap.setPointerCapture(e.pointerId);moveBasket(e);});
+gWrap.addEventListener('pointermove',e=>{if(gPointer)moveBasket(e);});
+gWrap.addEventListener('pointerup',e=>{gPointer=false;try{gWrap.releasePointerCapture(e.pointerId);}catch(_){}});
+gWrap.addEventListener('pointercancel',()=>{gPointer=false});
+function moveBasket(e){
+  const r=gWrap.getBoundingClientRect();
+  const x=e.clientX-r.left;
+  gBasketX=Math.max(60,Math.min(gW-60,x));
+}
+window.addEventListener('resize',()=>{gResize();gDraw();});
+gResize();
+gDraw();
+</script>
+</body>
+</html>
